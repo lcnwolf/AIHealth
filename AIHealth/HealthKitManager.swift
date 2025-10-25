@@ -340,7 +340,7 @@ private extension HealthKitManager {
 
 private extension HealthKitManager {
     func fetchSamples<T: HKSample>(of sampleType: HKSampleType, predicate: NSPredicate?, sortDescriptors: [NSSortDescriptor]? = nil) async throws -> [T] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[T], Error>) in
             let query = HKSampleQuery(sampleType: sampleType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: sortDescriptors) { _, samples, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -377,7 +377,7 @@ private extension HealthKitManager {
         let startOfDay = calendar.startOfDay(for: Date())
         guard let start = calendar.date(byAdding: component, value: value, to: startOfDay) else { return nil }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
-        let stats = try await withCheckedThrowingContinuation { continuation in
+        let stats = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<HKStatistics?, Error>) in
             let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, statistics, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -408,7 +408,7 @@ private extension HealthKitManager {
         let startOfDay = calendar.startOfDay(for: Date())
         guard let start = calendar.date(byAdding: .day, value: -days, to: startOfDay) else { return nil }
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double?, Error>) in
             let interval = DateComponents(day: 1)
             let query = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate), options: .cumulativeSum, anchorDate: startOfDay, intervalComponents: interval)
             query.initialResultsHandler = { _, collection, error in
