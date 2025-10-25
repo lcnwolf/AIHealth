@@ -137,7 +137,10 @@ private extension HealthKitManager {
         let predicate = HKQuery.predicateForSamples(withStart: sevenDaysAgo, end: Date(), options: .strictStartDate)
         let samples: [HKCategorySample] = try await fetchSamples(of: sleepType, predicate: predicate)
         let lastNightSamples = samples.filter { $0.startDate >= lastNightStart }
-        let asleepSamples = samples.filter { $0.value == HKCategoryValueSleepAnalysis.asleep.rawValue }
+        let asleepSamples = samples.filter { sample in
+            guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return false }
+            return value.isAsleep
+        }
 
         let lastNightHours: Double? = lastNightSamples.isEmpty ? nil : lastNightSamples.reduce(0) { partial, sample in
             partial + sample.endDate.timeIntervalSince(sample.startDate)
@@ -197,9 +200,26 @@ private extension HealthKitManager {
         let exerciseType = HKObjectType.quantityType(forIdentifier: .appleExerciseTime)
         let standType = HKObjectType.quantityType(forIdentifier: .appleStandTime)
 
-        let energy = try await energyType.flatMap { try await sumQuantity(for: $0, over: .day, value: 0) }
-        let exercise = try await exerciseType.flatMap { try await sumQuantity(for: $0, over: .day, value: 0) }
-        let stand = try await standType.flatMap { try await sumQuantity(for: $0, over: .day, value: 0) }
+        let energy: Double?
+        if let energyType {
+            energy = try await sumQuantity(for: energyType, over: .day, value: 0)
+        } else {
+            energy = nil
+        }
+
+        let exercise: Double?
+        if let exerciseType {
+            exercise = try await sumQuantity(for: exerciseType, over: .day, value: 0)
+        } else {
+            exercise = nil
+        }
+
+        let stand: Double?
+        if let standType {
+            stand = try await sumQuantity(for: standType, over: .day, value: 0)
+        } else {
+            stand = nil
+        }
 
         return HealthSnapshot.ActivityMetrics(
             stepsToday: try await stepsToday,
@@ -254,12 +274,24 @@ private extension HealthKitManager {
         let average = averageQuantity(from: samples)
 
         let bodyFatType = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)
-        let bodyFat = try await bodyFatType.flatMap { try await fetchLatestQuantitySample(for: $0) }
+        let bodyFatSample: HKQuantitySample?
+        if let bodyFatType {
+            bodyFatSample = try await fetchLatestQuantitySample(for: bodyFatType)
+        } else {
+            bodyFatSample = nil
+        }
+
+        let bodyFatPercent: Double?
+        if let bodyFatSample {
+            bodyFatPercent = bodyFatSample.quantity.doubleValue(for: .percent()) * 100
+        } else {
+            bodyFatPercent = nil
+        }
 
         return HealthSnapshot.BodyMetrics(
             weight: latestWeight?.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo)),
             weight7DayAverage: average?.doubleValue(for: HKUnit.gramUnit(with: .kilo)),
-            bodyFatPercent: bodyFat?.quantity.doubleValue(for: .percent()) * 100
+            bodyFatPercent: bodyFatPercent
         )
     }
 
@@ -267,8 +299,9 @@ private extension HealthKitManager {
         guard let oxygenType = HKObjectType.quantityType(forIdentifier: .oxygenSaturation) else { return nil }
         let samples = try await fetchQuantitySamples(for: oxygenType, daysBack: 7)
         let average = averageQuantity(from: samples)
+        let sleepAveragePercent = average.map { $0.doubleValue(for: .percent()) * 100 }
         return HealthSnapshot.OxygenMetrics(
-            sleepAverage: average?.doubleValue(for: .percent()) * 100
+            sleepAverage: sleepAveragePercent
         )
     }
 
@@ -461,5 +494,18 @@ extension HealthKitManager {
         let manager = HealthKitManager()
         manager.authorizationState = .authorized
         return manager
+    }
+}
+
+// MARK: - Sleep helpers
+
+private extension HKCategoryValueSleepAnalysis {
+    var isAsleep: Bool {
+        switch self {
+        case .asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM:
+            return true
+        default:
+            return false
+        }
     }
 }
