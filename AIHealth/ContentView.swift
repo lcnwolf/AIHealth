@@ -1,29 +1,54 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var apiKey: String = ""
+    @EnvironmentObject private var settings: AppSettings
     @State private var form = ManualHealthFormState()
     @State private var isRequesting: Bool = false
     @State private var resultText: String?
     @State private var errorMessage: String?
+    @State private var lastRequestCost: RequestCostInfo?
 
     var body: some View {
         NavigationView {
             Form {
-                apiKeySection
+                modelSection
                 dateSection
                 ManualMetricsSections(form: $form)
                 submissionSection
             }
             .navigationTitle("AI Health")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: SettingsView()) {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel("Настройки запроса")
+                }
+            }
         }
     }
 
-    private var apiKeySection: some View {
-        Section(header: Text("API-ключ OpenAI")) {
-            SecureField("sk-...", text: $apiKey)
-                .textInputAutocapitalization(.never)
-                .disableAutocorrection(true)
+    private var modelSection: some View {
+        Section(header: Text("Модель OpenAI")) {
+            Picker("Модель", selection: $settings.selectedModelID) {
+                ForEach(settings.availableModels) { model in
+                    Text(model.displayName).tag(model.id)
+                }
+            }
+            if let summary = estimatedCostSummary {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(summary.singleRequest)
+                    Text(summary.tenThousandRequests)
+                    Text(summary.context)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            Text(settings.selectedModel.description)
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        } footer: {
+            Text("Расчёт для \(estimatedTokens.output) токенов ответа и текущего промпта.")
         }
     }
 
@@ -46,7 +71,7 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(apiKey.isEmpty || isRequesting)
+            .disabled(settings.apiKey.isEmpty || isRequesting)
 
             if let errorMessage {
                 Text(errorMessage)
@@ -56,13 +81,34 @@ struct ContentView: View {
             if let resultText {
                 NavigationLink("Смотреть ответ", destination: ResultView(text: resultText))
             }
+
+            if let lastRequestCost {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Последний запрос: \(lastRequestCost.model.displayName)")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    Text(String(format: "Стоимость: $%.4f (вход: %d ток., выход: %d ток.)",
+                                lastRequestCost.totalCost,
+                                lastRequestCost.promptTokens,
+                                lastRequestCost.completionTokens))
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
         } footer: {
-            Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
+                if settings.apiKey.isEmpty {
+                    Text("Добавьте API-ключ в настройках, чтобы разблокировать отправку.")
+                } else {
+                    Text("API-ключ сохранён локально и будет использоваться для следующих запросов.")
+                }
+            }
         }
     }
 
     private func checkHealth() {
-        guard !apiKey.isEmpty else {
+        guard !settings.apiKey.isEmpty else {
             errorMessage = "Введите API-ключ"
             return
         }
@@ -73,15 +119,25 @@ struct ContentView: View {
 
         errorMessage = nil
         isRequesting = true
+        lastRequestCost = nil
 
         let snapshot = form.makeSnapshot()
-        let prompt = PromptBuilder().prompt(from: snapshot)
+        let promptTemplate = settings.promptTemplate
+        let model = settings.selectedModel
+        let prompt = PromptBuilder(template: promptTemplate).prompt(from: snapshot)
 
         Task {
             do {
-                let response = try await OpenAIService().sendPrompt(prompt, apiKey: apiKey)
+                let response = try await OpenAIService().sendPrompt(prompt, apiKey: settings.apiKey, model: model)
                 await MainActor.run {
-                    resultText = response
+                    resultText = response.message
+                    if let usage = response.usage {
+                        let cost = model.pricing.cost(inputTokens: usage.promptTokens, outputTokens: usage.completionTokens)
+                        lastRequestCost = RequestCostInfo(model: model,
+                                                          promptTokens: usage.promptTokens,
+                                                          completionTokens: usage.completionTokens,
+                                                          totalCost: cost)
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -93,6 +149,51 @@ struct ContentView: View {
                 isRequesting = false
             }
         }
+    }
+}
+
+private extension ContentView {
+    struct CostSummary {
+        let singleRequest: String
+        let tenThousandRequests: String
+        let context: String
+    }
+
+    struct RequestCostInfo {
+        let model: OpenAIModel
+        let promptTokens: Int
+        let completionTokens: Int
+        let totalCost: Double
+    }
+
+    var estimatedTokens: (input: Int, output: Int) {
+        let promptBuilder = PromptBuilder(template: settings.promptTemplate)
+        let prompt = promptBuilder.prompt(from: form.makeSnapshot())
+        let systemTokens = TokenEstimator.approximateTokenCount(for: OpenAIService.systemMessage)
+        let userTokens = TokenEstimator.approximateTokenCount(for: prompt)
+        return (systemTokens + userTokens, settings.estimatedCompletionTokens)
+    }
+
+    var estimatedCostSummary: CostSummary? {
+        let tokens = estimatedTokens
+        guard tokens.input > 0 else { return nil }
+        let model = settings.selectedModel
+        let cost = model.pricing.cost(inputTokens: tokens.input, outputTokens: tokens.output)
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.minimumFractionDigits = 4
+        formatter.maximumFractionDigits = 4
+
+        let singleCostString = formatter.string(from: NSNumber(value: cost)) ?? String(format: "$%.4f", cost)
+        let manyCost = model.costForRequests(count: 10_000, inputTokens: tokens.input, outputTokens: tokens.output)
+        let manyCostString = formatter.string(from: NSNumber(value: manyCost)) ?? String(format: "$%.2f", manyCost)
+
+        return CostSummary(
+            singleRequest: "≈Стоимость 1 запроса: \(singleCostString)",
+            tenThousandRequests: "≈Стоимость 10 000 запросов: \(manyCostString)",
+            context: "Контекст \(model.contextWindow.formatted(.number)) токенов"
+        )
     }
 }
 
