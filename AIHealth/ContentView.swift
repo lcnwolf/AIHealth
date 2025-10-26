@@ -10,158 +10,54 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("API-ключ OpenAI")) {
-                    SecureField("sk-...", text: $apiKey)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                }
-
-                Section(header: Text("Дата среза")) {
-                    DatePicker("Дата", selection: $form.snapshotDate, displayedComponents: [.date, .hourAndMinute])
-                }
-
-                Group {
-                    Section(header: Text("Сон")) {
-                        TextField("Сон последняя ночь (часы)", text: $form.sleepLastNight)
-                            .keyboardType(.decimalPad)
-                        TextField("Среднее за 7 дней (часы)", text: $form.sleepAverage)
-                            .keyboardType(.decimalPad)
-                        Toggle("Указать время отбоя", isOn: $form.includeSleepBedtime)
-                        if form.includeSleepBedtime {
-                            DatePicker("Отбой", selection: $form.sleepBedtime, displayedComponents: [.date, .hourAndMinute])
-                        }
-                        Toggle("Указать время подъёма", isOn: $form.includeSleepWake)
-                        if form.includeSleepWake {
-                            DatePicker("Подъём", selection: $form.sleepWake, displayedComponents: [.date, .hourAndMinute])
-                        }
-                    }
-
-                    Section(header: Text("Вариабельность (HRV)", footer: Text("Поля повторяют реальный набор показателей")) {
-                        TextField("Сегодня", text: $form.hrvToday)
-                            .keyboardType(.decimalPad)
-                        TextField("Базовый уровень 7 дней", text: $form.hrvBaseline)
-                            .keyboardType(.decimalPad)
-                        TextField("Количество выборок", text: $form.hrvSampleCount)
-                            .keyboardType(.numberPad)
-                        Toggle("Указать время измерения", isOn: $form.includeHRVSampleTime)
-                        if form.includeHRVSampleTime {
-                            DatePicker("Время", selection: $form.hrvSampleTime, displayedComponents: [.date, .hourAndMinute])
-                        }
-                        TextField("Устройство", text: $form.hrvDevice)
-                    }
-
-                    Section(header: Text("Пульс покоя")) {
-                        TextField("Сегодня", text: $form.restingHRToday)
-                            .keyboardType(.decimalPad)
-                        TextField("Базовый уровень 7 дней", text: $form.restingHRBaseline)
-                            .keyboardType(.decimalPad)
-                    }
-                }
-
-                Group {
-                    Section(header: Text("Активность")) {
-                        TextField("Шаги сегодня", text: $form.stepsToday)
-                            .keyboardType(.decimalPad)
-                        TextField("Шаги среднее 7 дней", text: $form.stepsAverage)
-                            .keyboardType(.decimalPad)
-                        TextField("Активные калории", text: $form.activeEnergy)
-                            .keyboardType(.decimalPad)
-                        TextField("Минуты спорта", text: $form.exerciseMinutes)
-                            .keyboardType(.decimalPad)
-                        TextField("Стояние (часы)", text: $form.standHours)
-                            .keyboardType(.decimalPad)
-                    }
-
-                    Section(header: Text("Тренировки")) {
-                        TextField("За 7 дней", text: $form.workouts7Days)
-                            .keyboardType(.numberPad)
-                        TextField("За 14 дней", text: $form.workouts14Days)
-                            .keyboardType(.numberPad)
-                        TextField("За 30 дней", text: $form.workouts30Days)
-                            .keyboardType(.numberPad)
-                        TextField("Дней без тренировки", text: $form.daysSinceLastWorkout)
-                            .keyboardType(.numberPad)
-                        TextField("Тип последней", text: $form.lastWorkoutType)
-                        TextField("Длительность последней (мин)", text: $form.lastWorkoutMinutes)
-                            .keyboardType(.decimalPad)
-                        Toggle("Указать дату последней", isOn: $form.includeLastWorkoutDate)
-                        if form.includeLastWorkoutDate {
-                            DatePicker("Дата", selection: $form.lastWorkoutDate, displayedComponents: [.date, .hourAndMinute])
-                        }
-                    }
-
-                    Section(header: Text("Показатели тела")) {
-                        TextField("Вес", text: $form.weight)
-                            .keyboardType(.decimalPad)
-                        TextField("Средний вес 7 дней", text: $form.weightAverage)
-                            .keyboardType(.decimalPad)
-                        TextField("Процент жира", text: $form.bodyFat)
-                            .keyboardType(.decimalPad)
-                    }
-                }
-
-                Group {
-                    Section(header: Text("Кислород во сне")) {
-                        TextField("Среднее значение", text: $form.oxygenSleepAverage)
-                            .keyboardType(.decimalPad)
-                    }
-
-                    Section(header: Text("Дыхание")) {
-                        TextField("Частота во сне", text: $form.respirationSleepRate)
-                            .keyboardType(.decimalPad)
-                        TextField("Базовое значение", text: $form.respirationBaseline)
-                            .keyboardType(.decimalPad)
-                    }
-
-                    Section(header: Text("VO₂max")) {
-                        TextField("Текущее", text: $form.vo2Latest)
-                            .keyboardType(.decimalPad)
-                        TextField("Предыдущее", text: $form.vo2Previous)
-                            .keyboardType(.decimalPad)
-                        TextField("Возраст", text: $form.vo2Age)
-                            .keyboardType(.numberPad)
-                        Picker("Пол", selection: $form.vo2Sex) {
-                            Text("Не указано").tag("")
-                            Text("Мужской").tag("male")
-                            Text("Женский").tag("female")
-                        }
-                        TextField("Норма", text: $form.vo2Norm)
-                            .keyboardType(.decimalPad)
-                        Toggle("Указать дату замера", isOn: $form.includeVo2Date)
-                        if form.includeVo2Date {
-                            DatePicker("Дата", selection: $form.vo2Date, displayedComponents: [.date, .hourAndMinute])
-                        }
-                        TextField("Контекст (например, бег)", text: $form.vo2Context)
-                    }
-                }
-
-                Section {
-                    Button(action: checkHealth) {
-                        HStack {
-                            if isRequesting {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                            }
-                            Text(isRequesting ? "Запрашиваем..." : "Отправить в OpenAI")
-                                .bold()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(apiKey.isEmpty || isRequesting)
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                    }
-
-                    if let resultText {
-                        NavigationLink("Смотреть ответ", destination: ResultView(text: resultText))
-                    }
-                } footer: {
-                    Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
-                }
+                apiKeySection
+                dateSection
+                ManualMetricsSections(form: $form)
+                submissionSection
             }
             .navigationTitle("AI Health")
+        }
+    }
+
+    private var apiKeySection: some View {
+        Section(header: Text("API-ключ OpenAI")) {
+            SecureField("sk-...", text: $apiKey)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+        }
+    }
+
+    private var dateSection: some View {
+        Section(header: Text("Дата среза")) {
+            DatePicker("Дата", selection: $form.snapshotDate, displayedComponents: [.date, .hourAndMinute])
+        }
+    }
+
+    private var submissionSection: some View {
+        Section {
+            Button(action: checkHealth) {
+                HStack {
+                    if isRequesting {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                    }
+                    Text(isRequesting ? "Запрашиваем..." : "Отправить в OpenAI")
+                        .bold()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(apiKey.isEmpty || isRequesting)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+            }
+
+            if let resultText {
+                NavigationLink("Смотреть ответ", destination: ResultView(text: resultText))
+            }
+        } footer: {
+            Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
         }
     }
 
@@ -196,6 +92,159 @@ struct ContentView: View {
             await MainActor.run {
                 isRequesting = false
             }
+        }
+    }
+}
+
+private struct ManualMetricsSections: View {
+    @Binding var form: ManualHealthFormState
+
+    @ViewBuilder
+    var body: some View {
+        sleepSection
+        cardioSection
+        activitySection
+        workoutsSection
+        bodySection
+        breathingSection
+        vo2Section
+    }
+
+    @ViewBuilder
+    private var sleepSection: some View {
+        Section(header: Text("Сон")) {
+            TextField("Сон последняя ночь (часы)", text: $form.sleepLastNight)
+                .keyboardType(.decimalPad)
+            TextField("Среднее за 7 дней (часы)", text: $form.sleepAverage)
+                .keyboardType(.decimalPad)
+            Toggle("Указать время отбоя", isOn: $form.includeSleepBedtime)
+            if form.includeSleepBedtime {
+                DatePicker("Отбой", selection: $form.sleepBedtime, displayedComponents: [.date, .hourAndMinute])
+            }
+            Toggle("Указать время подъёма", isOn: $form.includeSleepWake)
+            if form.includeSleepWake {
+                DatePicker("Подъём", selection: $form.sleepWake, displayedComponents: [.date, .hourAndMinute])
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cardioSection: some View {
+        Section(header: Text("Сердечные показатели"), footer: Text("Поля повторяют реальный набор показателей")) {
+            Text("HRV")
+                .font(.headline)
+            TextField("Сегодня", text: $form.hrvToday)
+                .keyboardType(.decimalPad)
+            TextField("Базовый уровень 7 дней", text: $form.hrvBaseline)
+                .keyboardType(.decimalPad)
+            TextField("Количество выборок", text: $form.hrvSampleCount)
+                .keyboardType(.numberPad)
+            Toggle("Указать время измерения", isOn: $form.includeHRVSampleTime)
+            if form.includeHRVSampleTime {
+                DatePicker("Время", selection: $form.hrvSampleTime, displayedComponents: [.date, .hourAndMinute])
+            }
+            TextField("Устройство", text: $form.hrvDevice)
+
+            Divider()
+
+            Text("Пульс покоя")
+                .font(.headline)
+            TextField("Сегодня", text: $form.restingHRToday)
+                .keyboardType(.decimalPad)
+            TextField("Базовый уровень 7 дней", text: $form.restingHRBaseline)
+                .keyboardType(.decimalPad)
+        }
+    }
+
+    @ViewBuilder
+    private var activitySection: some View {
+        Section(header: Text("Активность")) {
+            TextField("Шаги сегодня", text: $form.stepsToday)
+                .keyboardType(.decimalPad)
+            TextField("Шаги среднее 7 дней", text: $form.stepsAverage)
+                .keyboardType(.decimalPad)
+            TextField("Активные калории", text: $form.activeEnergy)
+                .keyboardType(.decimalPad)
+            TextField("Минуты спорта", text: $form.exerciseMinutes)
+                .keyboardType(.decimalPad)
+            TextField("Стояние (часы)", text: $form.standHours)
+                .keyboardType(.decimalPad)
+        }
+    }
+
+    @ViewBuilder
+    private var workoutsSection: some View {
+        Section(header: Text("Тренировки")) {
+            TextField("За 7 дней", text: $form.workouts7Days)
+                .keyboardType(.numberPad)
+            TextField("За 14 дней", text: $form.workouts14Days)
+                .keyboardType(.numberPad)
+            TextField("За 30 дней", text: $form.workouts30Days)
+                .keyboardType(.numberPad)
+            TextField("Дней без тренировки", text: $form.daysSinceLastWorkout)
+                .keyboardType(.numberPad)
+            TextField("Тип последней", text: $form.lastWorkoutType)
+            TextField("Длительность последней (мин)", text: $form.lastWorkoutMinutes)
+                .keyboardType(.decimalPad)
+            Toggle("Указать дату последней", isOn: $form.includeLastWorkoutDate)
+            if form.includeLastWorkoutDate {
+                DatePicker("Дата", selection: $form.lastWorkoutDate, displayedComponents: [.date, .hourAndMinute])
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var bodySection: some View {
+        Section(header: Text("Показатели тела")) {
+            TextField("Вес", text: $form.weight)
+                .keyboardType(.decimalPad)
+            TextField("Средний вес 7 дней", text: $form.weightAverage)
+                .keyboardType(.decimalPad)
+            TextField("Процент жира", text: $form.bodyFat)
+                .keyboardType(.decimalPad)
+        }
+    }
+
+    @ViewBuilder
+    private var breathingSection: some View {
+        Section(header: Text("Дыхание и кислород")) {
+            Text("Кислород во сне")
+                .font(.headline)
+            TextField("Среднее значение", text: $form.oxygenSleepAverage)
+                .keyboardType(.decimalPad)
+
+            Divider()
+
+            Text("Дыхание")
+                .font(.headline)
+            TextField("Частота во сне", text: $form.respirationSleepRate)
+                .keyboardType(.decimalPad)
+            TextField("Базовое значение", text: $form.respirationBaseline)
+                .keyboardType(.decimalPad)
+        }
+    }
+
+    @ViewBuilder
+    private var vo2Section: some View {
+        Section(header: Text("VO₂max")) {
+            TextField("Текущее", text: $form.vo2Latest)
+                .keyboardType(.decimalPad)
+            TextField("Предыдущее", text: $form.vo2Previous)
+                .keyboardType(.decimalPad)
+            TextField("Возраст", text: $form.vo2Age)
+                .keyboardType(.numberPad)
+            Picker("Пол", selection: $form.vo2Sex) {
+                Text("Не указано").tag("")
+                Text("Мужской").tag("male")
+                Text("Женский").tag("female")
+            }
+            TextField("Норма", text: $form.vo2Norm)
+                .keyboardType(.decimalPad)
+            Toggle("Указать дату замера", isOn: $form.includeVo2Date)
+            if form.includeVo2Date {
+                DatePicker("Дата", selection: $form.vo2Date, displayedComponents: [.date, .hourAndMinute])
+            }
+            TextField("Контекст (например, бег)", text: $form.vo2Context)
         }
     }
 }
