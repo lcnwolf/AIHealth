@@ -8,13 +8,17 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("API-ключ OpenAI"), footer: Text("Ключ хранится локально и используется при отправке запросов.")) {
+            Section {
                 SecureField("sk-...", text: $apiKeyDraft)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
+            } header: {
+                Text("API-ключ OpenAI")
+            } footer: {
+                Text("Ключ хранится локально и используется при отправке запросов.")
             }
 
-            Section(header: Text("Промпт")) {
+            Section {
                 TextEditor(text: $promptDraft)
                     .frame(minHeight: 260)
                     .font(.system(.body, design: .monospaced))
@@ -22,6 +26,8 @@ struct SettingsView: View {
                     promptDraft = PromptTemplate.default
                 }
                 .disabled(promptDraft == PromptTemplate.default)
+            } header: {
+                Text("Промпт")
             } footer: {
                 Text("Шаблон должен содержать маркер \(PromptTemplate.placeholder), который будет заменён на JSON данных.")
             }
