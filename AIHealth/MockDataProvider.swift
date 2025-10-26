@@ -1,6 +1,6 @@
 import Foundation
 
-/// Упрощённый источник мок-данных, имитирующий HealthKit.
+/// Упрощённый источник мок-данных для автономного тестирования.
 struct MockDataProvider {
     func fetchSnapshot() async throws -> HealthSnapshot {
         try await Task.sleep(nanoseconds: 150_000_000) // лёгкая задержка, чтобы UI показывал спиннер
