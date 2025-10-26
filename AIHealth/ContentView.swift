@@ -29,7 +29,8 @@ struct ContentView: View {
     }
 
     private var modelSection: some View {
-        Section(header: Text("Модель OpenAI")) {
+        Section(header: Text("Модель OpenAI"),
+                footer: Text("Расчёт для \(estimatedTokens.output) токенов ответа и текущего промпта.")) {
             Picker("Модель", selection: $settings.selectedModelID) {
                 ForEach(settings.availableModels) { model in
                     Text(model.displayName).tag(model.id)
@@ -47,8 +48,6 @@ struct ContentView: View {
             Text(settings.selectedModel.description)
                 .font(.footnote)
                 .foregroundColor(.secondary)
-        } footer: {
-            Text("Расчёт для \(estimatedTokens.output) токенов ответа и текущего промпта.")
         }
     }
 
@@ -59,7 +58,15 @@ struct ContentView: View {
     }
 
     private var submissionSection: some View {
-        Section {
+        Section(header: EmptyView(),
+                footer: VStack(alignment: .leading, spacing: 4) {
+                    Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
+                    if settings.apiKey.isEmpty {
+                        Text("Добавьте API-ключ в настройках, чтобы разблокировать отправку.")
+                    } else {
+                        Text("API-ключ сохранён локально и будет использоваться для следующих запросов.")
+                    }
+                }) {
             Button(action: checkHealth) {
                 HStack {
                     if isRequesting {
@@ -93,15 +100,6 @@ struct ContentView: View {
                                 lastRequestCost.completionTokens))
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                }
-            }
-        } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Оставьте пустыми любые поля, которые сейчас нет смысла подтягивать — мы не будем отправлять их в промпт.")
-                if settings.apiKey.isEmpty {
-                    Text("Добавьте API-ключ в настройках, чтобы разблокировать отправку.")
-                } else {
-                    Text("API-ключ сохранён локально и будет использоваться для следующих запросов.")
                 }
             }
         }
