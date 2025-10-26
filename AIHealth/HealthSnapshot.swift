@@ -11,7 +11,7 @@ struct HealthSnapshot: Codable {
     struct HRVMetrics: Codable {
         let today: Double?
         let baseline7Days: Double?
-        let sampleCount: Int
+        let sampleCount: Int?
         let sampleTime: Date?
         let device: String?
     }
@@ -31,14 +31,14 @@ struct HealthSnapshot: Codable {
 
     struct WorkoutSummary: Codable {
         struct WorkoutDetail: Codable {
-            let type: String
-            let minutes: Double
-            let date: Date
+            let type: String?
+            let minutes: Double?
+            let date: Date?
         }
 
-        let workouts7Days: Int
-        let workouts14Days: Int
-        let workouts30Days: Int
+        let workouts7Days: Int?
+        let workouts14Days: Int?
+        let workouts30Days: Int?
         let daysSinceLastWorkout: Int?
         let lastWorkout: WorkoutDetail?
     }
