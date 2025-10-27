@@ -1,6 +1,18 @@
 import Foundation
 
 struct OpenAIService {
+    static let systemMessage = "Вы — дружественный помощник по здоровью."
+
+    struct Response {
+        struct Usage {
+            let promptTokens: Int
+            let completionTokens: Int
+        }
+
+        let message: String
+        let usage: Usage?
+    }
+
     enum ServiceError: LocalizedError {
         case invalidResponse
         case emptyMessage
@@ -15,18 +27,18 @@ struct OpenAIService {
         }
     }
 
-    func sendPrompt(_ prompt: String, apiKey: String) async throws -> String {
+    func sendPrompt(_ prompt: String, apiKey: String, model: OpenAIModel) async throws -> Response {
         var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
         let body: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": model.id,
             "messages": [
                 [
                     "role": "system",
-                    "content": "Вы — дружественный помощник по здоровью."
+                    "content": OpenAIService.systemMessage,
                 ],
                 [
                     "role": "user",
@@ -51,7 +63,10 @@ struct OpenAIService {
         guard let message = decoded.choices.first?.message.content?.trimmingCharacters(in: .whitespacesAndNewlines), !message.isEmpty else {
             throw ServiceError.emptyMessage
         }
-        return message
+        let usage = decoded.usage.map { usage in
+            Response.Usage(promptTokens: usage.promptTokens, completionTokens: usage.completionTokens)
+        }
+        return Response(message: message, usage: usage)
     }
 }
 
@@ -65,4 +80,15 @@ private struct ChatCompletionResponse: Decodable {
     }
 
     let choices: [Choice]
+    let usage: Usage?
+
+    struct Usage: Decodable {
+        let promptTokens: Int
+        let completionTokens: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case promptTokens = "prompt_tokens"
+            case completionTokens = "completion_tokens"
+        }
+    }
 }
