@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var resultText: String?
     @State private var errorMessage: String?
     @State private var lastRequestCost: RequestCostInfo?
+    @State private var generatedSnapshot: HealthSnapshot?
 
     var body: some View {
         NavigationView {
@@ -67,6 +68,16 @@ struct ContentView: View {
                         Text("API-ключ сохранён локально и будет использоваться для следующих запросов.")
                     }
                 }) {
+            Button(action: generateRandomMetrics) {
+                Label("Сгенерировать показатели", systemImage: "sparkles")
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRequesting)
+
+            if generatedSnapshot != nil {
+                GeneratedSnapshotSummaryView(snapshot: form.makeSnapshot())
+            }
+
             Button(action: checkHealth) {
                 HStack {
                     if isRequesting {
@@ -103,6 +114,14 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func generateRandomMetrics() {
+        let snapshot = RandomHealthDataGenerator.generateSnapshot(referenceDate: form.snapshotDate)
+        form.apply(snapshot: snapshot)
+        generatedSnapshot = form.makeSnapshot()
+        errorMessage = nil
+        lastRequestCost = nil
     }
 
     private func checkHealth() {
@@ -344,6 +363,188 @@ private struct ManualMetricsSections: View {
                 DatePicker("Дата", selection: $form.vo2Date, displayedComponents: [.date, .hourAndMinute])
             }
             TextField("Контекст (например, бег)", text: $form.vo2Context)
+        }
+    }
+}
+
+private struct GeneratedSnapshotSummaryView: View {
+    let snapshot: HealthSnapshot
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Сгенерированные показатели")
+                .font(.headline)
+            Text("Срез от \(Self.timestampFormatter.string(from: snapshot.date))")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+            ForEach(Array(summaryLines.enumerated()), id: \.offset) { _, line in
+                Text("• \(line)")
+                    .font(.subheadline)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var summaryLines: [String] {
+        var lines: [String] = []
+
+        if let sleep = snapshot.sleep {
+            var parts: [String] = []
+            if let last = sleep.lastNightHours { parts.append("последняя ночь \(format(last)) ч") }
+            if let average = sleep.average7Days { parts.append("среднее 7 дней \(format(average)) ч") }
+            if !parts.isEmpty {
+                lines.append("Сон: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let hrv = snapshot.hrv {
+            var parts: [String] = []
+            if let today = hrv.today { parts.append("сегодня \(format(today, decimals: 0)) мс") }
+            if let baseline = hrv.baseline7Days { parts.append("база \(format(baseline, decimals: 0)) мс") }
+            if let count = hrv.sampleCount { parts.append("выборок \(count)") }
+            if let device = hrv.device { parts.append("устройство \(device)") }
+            if !parts.isEmpty {
+                lines.append("HRV: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let resting = snapshot.restingHR {
+            var parts: [String] = []
+            if let today = resting.today { parts.append("сегодня \(format(today, decimals: 0)) уд/мин") }
+            if let baseline = resting.baseline7Days { parts.append("база \(format(baseline, decimals: 0))") }
+            if !parts.isEmpty {
+                lines.append("Пульс покоя: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let activity = snapshot.activity {
+            var parts: [String] = []
+            if let steps = activity.stepsToday { parts.append("шаги сегодня \(format(steps, decimals: 0))") }
+            if let avg = activity.steps7DayAverage { parts.append("среднее \(format(avg, decimals: 0))") }
+            if let energy = activity.activeEnergy { parts.append("активные калории \(format(energy, decimals: 0))") }
+            if let minutes = activity.exerciseMinutes { parts.append("минут спорта \(format(minutes, decimals: 0))") }
+            if let stand = activity.standHours { parts.append("стояние \(format(stand, decimals: 0)) ч") }
+            if !parts.isEmpty {
+                lines.append("Активность: " + parts.joined(separator: ", "))
+            }
+        }
+
+            if let workouts = snapshot.workouts {
+                var parts: [String] = []
+                if let w7 = workouts.workouts7Days { parts.append("за 7 дней \(w7)") }
+                if let w14 = workouts.workouts14Days { parts.append("за 14 дней \(w14)") }
+                if let w30 = workouts.workouts30Days { parts.append("за 30 дней \(w30)") }
+                if let days = workouts.daysSinceLastWorkout { parts.append("дней без тренировки \(days)") }
+                if let last = workouts.lastWorkout {
+                    var lastParts: [String] = []
+                    if let type = last.type { lastParts.append(localizedWorkout(type)) }
+                    if let minutes = last.minutes { lastParts.append("\(format(minutes, decimals: 0)) мин") }
+                    if let date = last.date { lastParts.append(Self.timestampFormatter.string(from: date)) }
+                    if !lastParts.isEmpty { parts.append("последняя: " + lastParts.joined(separator: ", ")) }
+                }
+                if !parts.isEmpty {
+                lines.append("Тренировки: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let body = snapshot.body {
+            var parts: [String] = []
+            if let weight = body.weight { parts.append("вес \(format(weight)) кг") }
+            if let average = body.weight7DayAverage { parts.append("среднее \(format(average)) кг") }
+            if let fat = body.bodyFatPercent { parts.append("жир \(format(fat)) %") }
+            if !parts.isEmpty {
+                lines.append("Тело: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let oxygen = snapshot.oxygen, let value = oxygen.sleepAverage {
+            lines.append("Кислород во сне: \(format(value)) %")
+        }
+
+        if let respiration = snapshot.respiration {
+            var parts: [String] = []
+            if let rate = respiration.sleepRate { parts.append("во сне \(format(rate)) вдохов/мин") }
+            if let base = respiration.baseline7Day { parts.append("база \(format(base))") }
+            if !parts.isEmpty {
+                lines.append("Дыхание: " + parts.joined(separator: ", "))
+            }
+        }
+
+        if let vo2 = snapshot.vo2max {
+            var parts: [String] = []
+            if let latest = vo2.latest { parts.append("текущий \(format(latest)) мл/кг/мин") }
+            if let norm = vo2.norm { parts.append("норма \(format(norm))") }
+            if let previous = vo2.previous { parts.append("предыдущий \(format(previous))") }
+            if let latest = vo2.latest, let norm = vo2.norm, norm > 0 {
+                let ratio = latest / norm
+                let level: String
+                switch ratio {
+                case ..<0.9:
+                    level = "ниже нормы"
+                case ..<1.05:
+                    level = "в пределах нормы"
+                case ..<1.15:
+                    level = "выше нормы"
+                default:
+                    level = "сильно выше нормы"
+                }
+                parts.append("уровень \(level)")
+            }
+            if let age = vo2.age { parts.append("возраст \(age)") }
+            if let sex = vo2.sex { parts.append("пол \(sexLabel(sex))") }
+            if let date = vo2.date { parts.append("дата \(Self.timestampFormatter.string(from: date))") }
+            if let context = vo2.context { parts.append("контекст \(localizedWorkout(context))") }
+            if !parts.isEmpty {
+                lines.append("МПК (VO₂max): " + parts.joined(separator: ", "))
+            }
+        }
+
+        return lines
+    }
+
+    private func format(_ value: Double, decimals: Int = 1) -> String {
+        String(format: "%.*f", decimals, value)
+    }
+
+    private func sexLabel(_ value: String) -> String {
+        switch value.lowercased() {
+        case "male":
+            return "мужской"
+        case "female":
+            return "женский"
+        default:
+            return value
+        }
+    }
+
+    private func localizedWorkout(_ value: String) -> String {
+        switch value.lowercased() {
+        case "run":
+            return "бег"
+        case "strength":
+            return "силовая"
+        case "cycling", "bike":
+            return "велосипед"
+        case "swim":
+            return "плавание"
+        case "yoga":
+            return "йога"
+        case "hiit":
+            return "HIIT"
+        case "hike":
+            return "поход"
+        case "row":
+            return "гребля"
+        default:
+            return value
         }
     }
 }
@@ -607,6 +808,158 @@ private struct ManualHealthFormState {
     private func trimmedOrNil(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+private extension ManualHealthFormState {
+    mutating func apply(snapshot: HealthSnapshot) {
+        snapshotDate = snapshot.date
+        let fallbackDate = snapshot.date
+
+        func setDouble(_ value: Double?, decimals: Int, field: inout String) {
+            if let value {
+                field = String(format: "%.*f", decimals, value)
+            } else {
+                field = ""
+            }
+        }
+
+        func setInt(_ value: Int?, field: inout String) {
+            if let value {
+                field = String(value)
+            } else {
+                field = ""
+            }
+        }
+
+        func setString(_ value: String?, field: inout String) {
+            field = value ?? ""
+        }
+
+        if let sleep = snapshot.sleep {
+            setDouble(sleep.lastNightHours, decimals: 1, field: &sleepLastNight)
+            setDouble(sleep.average7Days, decimals: 1, field: &sleepAverage)
+            includeSleepBedtime = sleep.bedtime != nil
+            sleepBedtime = sleep.bedtime ?? fallbackDate
+            includeSleepWake = sleep.wakeUp != nil
+            sleepWake = sleep.wakeUp ?? fallbackDate
+        } else {
+            sleepLastNight = ""
+            sleepAverage = ""
+            includeSleepBedtime = false
+            sleepBedtime = fallbackDate
+            includeSleepWake = false
+            sleepWake = fallbackDate
+        }
+
+        if let hrv = snapshot.hrv {
+            setDouble(hrv.today, decimals: 1, field: &hrvToday)
+            setDouble(hrv.baseline7Days, decimals: 1, field: &hrvBaseline)
+            setInt(hrv.sampleCount, field: &hrvSampleCount)
+            includeHRVSampleTime = hrv.sampleTime != nil
+            hrvSampleTime = hrv.sampleTime ?? fallbackDate
+            setString(hrv.device, field: &hrvDevice)
+        } else {
+            hrvToday = ""
+            hrvBaseline = ""
+            hrvSampleCount = ""
+            includeHRVSampleTime = false
+            hrvSampleTime = fallbackDate
+            hrvDevice = ""
+        }
+
+        if let resting = snapshot.restingHR {
+            setDouble(resting.today, decimals: 1, field: &restingHRToday)
+            setDouble(resting.baseline7Days, decimals: 1, field: &restingHRBaseline)
+        } else {
+            restingHRToday = ""
+            restingHRBaseline = ""
+        }
+
+        if let activity = snapshot.activity {
+            setDouble(activity.stepsToday, decimals: 0, field: &stepsToday)
+            setDouble(activity.steps7DayAverage, decimals: 0, field: &stepsAverage)
+            setDouble(activity.activeEnergy, decimals: 0, field: &activeEnergy)
+            setDouble(activity.exerciseMinutes, decimals: 0, field: &exerciseMinutes)
+            setDouble(activity.standHours, decimals: 0, field: &standHours)
+        } else {
+            stepsToday = ""
+            stepsAverage = ""
+            activeEnergy = ""
+            exerciseMinutes = ""
+            standHours = ""
+        }
+
+        if let workouts = snapshot.workouts {
+            setInt(workouts.workouts7Days, field: &workouts7Days)
+            setInt(workouts.workouts14Days, field: &workouts14Days)
+            setInt(workouts.workouts30Days, field: &workouts30Days)
+            setInt(workouts.daysSinceLastWorkout, field: &daysSinceLastWorkout)
+            if let last = workouts.lastWorkout {
+                setString(last.type, field: &lastWorkoutType)
+                setDouble(last.minutes, decimals: 0, field: &lastWorkoutMinutes)
+                includeLastWorkoutDate = last.date != nil
+                lastWorkoutDate = last.date ?? fallbackDate
+            } else {
+                lastWorkoutType = ""
+                lastWorkoutMinutes = ""
+                includeLastWorkoutDate = false
+                lastWorkoutDate = fallbackDate
+            }
+        } else {
+            workouts7Days = ""
+            workouts14Days = ""
+            workouts30Days = ""
+            daysSinceLastWorkout = ""
+            lastWorkoutType = ""
+            lastWorkoutMinutes = ""
+            includeLastWorkoutDate = false
+            lastWorkoutDate = fallbackDate
+        }
+
+        if let body = snapshot.body {
+            setDouble(body.weight, decimals: 1, field: &weight)
+            setDouble(body.weight7DayAverage, decimals: 1, field: &weightAverage)
+            setDouble(body.bodyFatPercent, decimals: 1, field: &bodyFat)
+        } else {
+            weight = ""
+            weightAverage = ""
+            bodyFat = ""
+        }
+
+        if let oxygen = snapshot.oxygen {
+            setDouble(oxygen.sleepAverage, decimals: 1, field: &oxygenSleepAverage)
+        } else {
+            oxygenSleepAverage = ""
+        }
+
+        if let respiration = snapshot.respiration {
+            setDouble(respiration.sleepRate, decimals: 1, field: &respirationSleepRate)
+            setDouble(respiration.baseline7Day, decimals: 1, field: &respirationBaseline)
+        } else {
+            respirationSleepRate = ""
+            respirationBaseline = ""
+        }
+
+        if let vo2 = snapshot.vo2max {
+            setDouble(vo2.latest, decimals: 1, field: &vo2Latest)
+            setDouble(vo2.previous, decimals: 1, field: &vo2Previous)
+            setInt(vo2.age, field: &vo2Age)
+            setString(vo2.sex, field: &vo2Sex)
+            setDouble(vo2.norm, decimals: 1, field: &vo2Norm)
+            includeVo2Date = vo2.date != nil
+            vo2Date = vo2.date ?? fallbackDate
+            setString(vo2.context, field: &vo2Context)
+        } else {
+            vo2Latest = ""
+            vo2Previous = ""
+            vo2Age = ""
+            vo2Sex = ""
+            vo2Norm = ""
+            includeVo2Date = false
+            vo2Date = fallbackDate
+            vo2Context = ""
+        }
     }
 }
 

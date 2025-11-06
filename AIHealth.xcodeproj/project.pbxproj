@@ -20,6 +20,7 @@ objects = {
 6EA4E4E62E6CBA7700DFA5F0 /* PromptTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA4E4E52E6CBA7700DFA5F0 /* PromptTemplate.swift */; };
 6EA4E4E82E6CBAA000DFA5F0 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA4E4E72E6CBAA000DFA5F0 /* SettingsView.swift */; };
 6EA4E4EA2E6CBAC400DFA5F0 /* TokenEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA4E4E92E6CBAC400DFA5F0 /* TokenEstimator.swift */; };
+6EA4E4EC2E6CBD0000DFA5F0 /* RandomHealthDataGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA4E4EB2E6CBD0000DFA5F0 /* RandomHealthDataGenerator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,7 @@ objects = {
 6EA4E4E52E6CBA7700DFA5F0 /* PromptTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptTemplate.swift; sourceTree = "<group>"; };
 6EA4E4E72E6CBAA000DFA5F0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 6EA4E4E92E6CBAC400DFA5F0 /* TokenEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenEstimator.swift; sourceTree = "<group>"; };
+6EA4E4EB2E6CBD0000DFA5F0 /* RandomHealthDataGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RandomHealthDataGenerator.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +93,7 @@ children = (
 6EA4E4E52E6CBA7700DFA5F0 /* PromptTemplate.swift */,
 6EA4E4E72E6CBAA000DFA5F0 /* SettingsView.swift */,
 6EA4E4E92E6CBAC400DFA5F0 /* TokenEstimator.swift */,
+6EA4E4EB2E6CBD0000DFA5F0 /* RandomHealthDataGenerator.swift */,
 6E8A7C2C2E3F5B6C00F6AA30 /* Resources */,
 6E8A7C2C2E3F5B6C00F6AA31 /* Preview Content */,
 );
@@ -199,6 +202,7 @@ files = (
 6EA4E4E62E6CBA7700DFA5F0 /* PromptTemplate.swift in Sources */,
 6EA4E4E82E6CBAA000DFA5F0 /* SettingsView.swift in Sources */,
 6EA4E4EA2E6CBAC400DFA5F0 /* TokenEstimator.swift in Sources */,
+6EA4E4EC2E6CBD0000DFA5F0 /* RandomHealthDataGenerator.swift in Sources */,
 );
 runOnlyForDeploymentPostprocessing = 0;
 };
